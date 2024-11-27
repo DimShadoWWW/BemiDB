@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -31,6 +32,14 @@ func NewSyncer(config *Config) *Syncer {
 func (syncer *Syncer) SyncFromPostgres() {
 	ctx := context.Background()
 
+	onlyTablesMap := make(map[string]bool)
+	if syncer.config.OnlyTables != "*" {
+		entries := strings.Split(syncer.config.OnlyTables, ",")
+		for _, e := range entries {
+			onlyTablesMap[e] = false
+		}
+	}
+
 	conn, err := pgx.Connect(ctx, syncer.config.Pg.DatabaseUrl)
 	PanicIfError(err)
 	defer conn.Close(ctx)
@@ -41,11 +50,18 @@ func (syncer *Syncer) SyncFromPostgres() {
 	pgSchemaTables := []SchemaTable{}
 	for _, schema := range syncer.listPgSchemas(conn) {
 		for _, pgSchemaTable := range syncer.listPgSchemaTables(conn, schema) {
-			pgSchemaTables = append(pgSchemaTables, pgSchemaTable)
-			syncer.syncFromPgTable(conn, pgSchemaTable)
+			tableName := pgSchemaTable.Table
+			syncTable := tableName == "*"
+			if _, ok := onlyTablesMap[tableName]; ok {
+				syncTable = true
+				onlyTablesMap[tableName] = true
+			}
+			if syncTable {
+				pgSchemaTables = append(pgSchemaTables, pgSchemaTable)
+				syncer.syncFromPgTable(conn, pgSchemaTable)
+			}
 		}
 	}
-
 	syncer.deleteOldIcebergSchemaTables(pgSchemaTables)
 }
 

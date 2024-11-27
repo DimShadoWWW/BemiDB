@@ -142,6 +142,7 @@ func TestLoadConfig(t *testing.T) {
 			"--pg-database-url", "postgres://user:password@localhost:5432/db",
 			"--pg-sync-interval", "2h30m",
 			"--pg-schema-prefix", "mydb_",
+			"--only-tables", "table1,table2",
 		})
 
 		config := LoadConfig()
@@ -172,6 +173,9 @@ func TestLoadConfig(t *testing.T) {
 		}
 		if config.Pg.SchemaPrefix != "mydb_" {
 			t.Errorf("Expected schemaPrefix to be mydb_, got %s", config.Pg.SchemaPrefix)
+		}
+		if config.OnlyTables != "table1,table2" {
+			t.Errorf("Expected onlyTables to be table1,table2, got %s", config.OnlyTables)
 		}
 	})
 }
